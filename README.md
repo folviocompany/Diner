@@ -180,7 +180,7 @@ No serviço Diner, defina DATABASE_URL como referência ao MYSQL_URL do serviço
 npm run db:prepare
 ```
 
-Aplique as alterações e implante o commit atualizado. Esse script executa as migrações e, somente se terminarem com sucesso, cria o administrador. Confira as duas etapas db:migrate e db:seed nos logs. Não basta executar somente db:migrate: ela cria as tabelas, mas não o usuário. Se o administrador já existir, o seed preserva a senha salva; alterar ADMIN_PASSWORD não redefine contas existentes.
+Aplique as alterações e implante o commit atualizado. Esse script executa as migrações e, somente se terminarem com sucesso, cria o administrador. Confira as duas etapas db:migrate e db:seed nos logs. Não basta executar somente db:migrate: ela cria as tabelas, mas não o usuário. Como proteção adicional, a aplicação cria o primeiro administrador ao iniciar quando a tabela Usuario está vazia e as variáveis ADMIN_EMAIL e ADMIN_PASSWORD estão definidas. Se já houver um usuário, a senha salva é preservada; alterar ADMIN_PASSWORD não redefine contas existentes.
 
 O Docker inclui OpenSSL tanto no build quanto na execução. O aplicativo confia em um salto de proxy quando RAILWAY_ENVIRONMENT_ID está presente, para identificar o cliente no limite de tentativas de login. TRUST_PROXY_HOPS permite ajustar explicitamente essa quantidade; fora do Railway, o padrão é zero. Use um salto somente quando todo acesso público passar pelo proxy que acrescenta o IP real ao X-Forwarded-For.
 

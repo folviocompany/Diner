@@ -4,6 +4,7 @@ import { criarPrisma } from '../infra/prisma/client.js';
 import { PrismaUnitOfWork } from '../infra/repositories/PrismaRepositories.js';
 import { MemoryUnitOfWork } from '../infra/repositories/MemoryRepositories.js';
 import { semearDemo } from '../infra/demo.js';
+import { provisionarAdministrador } from '../infra/prisma/provisionarAdministrador.js';
 
 export async function criarRuntime() {
   const config = carregarConfig();
@@ -16,5 +17,6 @@ export async function criarRuntime() {
   }
   const db = criarPrisma();
   await db.$connect();
+  await provisionarAdministrador(db);
   return { container: criarContainer(new PrismaUnitOfWork(db), config), close: () => db.$disconnect() };
 }
