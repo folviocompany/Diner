@@ -6,6 +6,12 @@ export function carregarConfig(env = process.env) {
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     HOST: z.string().default('127.0.0.1'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+    TRUST_PROXY_HOPS: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(10)
+      .default(env.RAILWAY_ENVIRONMENT_ID ? 1 : 0),
     STORE_TIMEZONE: z.string().default('America/Manaus'),
     SESSION_HOURS: z.coerce.number().min(1).max(168).default(12),
     WORKER_INTERVAL_MS: z.coerce.number().int().min(100).default(2000),
@@ -24,6 +30,7 @@ export function carregarConfig(env = process.env) {
     host: data.HOST,
     port: data.PORT,
     timezone: data.STORE_TIMEZONE,
+    trustProxyHops: data.TRUST_PROXY_HOPS,
     sessionHours: data.SESSION_HOURS,
     workerInterval: data.WORKER_INTERVAL_MS,
     demo: data.DEMO_MODE === 'true',

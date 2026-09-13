@@ -15,6 +15,7 @@ export function criarApp(container) {
   const app = express();
   const { config } = container;
   app.disable('x-powered-by');
+  app.set('trust proxy', config.trustProxyHops ?? 0);
   app.use((req, res, next) => {
     req.id = randomUUID();
     res.setHeader('X-Request-Id', req.id);

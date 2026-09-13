@@ -171,3 +171,17 @@ O código foi implementado e validado localmente. Não houve publicação extern
 ### Autenticação do MySQL após reinício
 
 O conector permite obter a chave RSA de autenticação somente em conexões de loopback (127.0.0.1, localhost ou ::1). Para MySQL remoto, utilize ?ssl=true na URL; certificados são verificados. DATABASE_SSL_CA permite informar o arquivo PEM de uma CA própria, e MYSQL_SERVER_RSA_KEY fixa a chave pública RSA do servidor. Referência: [opções oficiais do conector MariaDB](https://mariadb.com/docs/connectors/mariadb-connector-nodejs/node-js-connection-options).
+
+### Primeiro acesso no Railway
+
+No serviço Diner, defina DATABASE_URL como referência ao MYSQL_URL do serviço MySQL, ADMIN_EMAIL e ADMIN_PASSWORD (mínimo de 10 caracteres). Em Settings → Deploy → Pre-Deploy Command, use um único comando:
+
+```sh
+npm run db:prepare
+```
+
+Aplique as alterações e implante o commit atualizado. Esse script executa as migrações e, somente se terminarem com sucesso, cria o administrador. Confira as duas etapas db:migrate e db:seed nos logs. Não basta executar somente db:migrate: ela cria as tabelas, mas não o usuário. Se o administrador já existir, o seed preserva a senha salva; alterar ADMIN_PASSWORD não redefine contas existentes.
+
+O Docker inclui OpenSSL tanto no build quanto na execução. O aplicativo confia em um salto de proxy quando RAILWAY_ENVIRONMENT_ID está presente, para identificar o cliente no limite de tentativas de login. TRUST_PROXY_HOPS permite ajustar explicitamente essa quantidade; fora do Railway, o padrão é zero. Use um salto somente quando todo acesso público passar pelo proxy que acrescenta o IP real ao X-Forwarded-For.
+
+Referências: [pre-deploy Railway](https://docs.railway.com/deployments/pre-deploy-command) e [Express atrás de proxy](https://expressjs.com/en/guide/behind-proxies/).
