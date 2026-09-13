@@ -1,0 +1,36 @@
+name: Diner CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TEST_DATABASE_URL: mysql://diner_test:diner_test@127.0.0.1:3307/diner_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run lint
+      - run: npm run test:unit
+      - run: docker compose -f docker-compose.test.yml up -d --wait
+      - run: npm run db:test
+      - run: npm run test:integration
+      - run: npm run test:e2e
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: evidencias-de-testes
+          path: test-results/
+      - if: always()
+        run: docker compose -f docker-compose.test.yml down

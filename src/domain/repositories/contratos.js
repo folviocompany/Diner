@@ -1,0 +1,117 @@
+// Contratos em JavaScript: adaptadores reais e de teste herdam as mesmas classes.
+const abstrato = () => {
+  throw new Error('Método do contrato não implementado.');
+};
+export class PedidoRepository {
+  criar() {
+    return abstrato();
+  }
+  buscarPorId() {
+    return abstrato();
+  }
+  buscarPorExterno() {
+    return abstrato();
+  }
+  listar() {
+    return abstrato();
+  }
+  buscarPorPeriodo() {
+    return abstrato();
+  }
+  atualizar() {
+    return abstrato();
+  }
+}
+export class ProdutoRepository {
+  listar() {
+    return abstrato();
+  }
+  buscarPorId() {
+    return abstrato();
+  }
+  buscarPorCodigo() {
+    return abstrato();
+  }
+  salvar() {
+    return abstrato();
+  }
+}
+export class CaixaRepository {
+  atual() {
+    return abstrato();
+  }
+  buscarPorId() {
+    return abstrato();
+  }
+  listar() {
+    return abstrato();
+  }
+  salvar() {
+    return abstrato();
+  }
+  pagamentos() {
+    return abstrato();
+  }
+  movimentos() {
+    return abstrato();
+  }
+  movimentar() {
+    return abstrato();
+  }
+}
+export class FinanceiroRepository {
+  pagar() {
+    return abstrato();
+  }
+  buscarPagamento() {
+    return abstrato();
+  }
+  estornar() {
+    return abstrato();
+  }
+  despesas() {
+    return abstrato();
+  }
+  criarDespesa() {
+    return abstrato();
+  }
+}
+export class EventoRepository {
+  registrar() {
+    return abstrato();
+  }
+  reivindicar() {
+    return abstrato();
+  }
+  finalizar() {
+    return abstrato();
+  }
+  listar() {
+    return abstrato();
+  }
+  reprocessar() {
+    return abstrato();
+  }
+}
+export class UsuarioRepository {
+  buscarPorEmail() {
+    return abstrato();
+  }
+  salvar() {
+    return abstrato();
+  }
+  criarSessao() {
+    return abstrato();
+  }
+  buscarSessao() {
+    return abstrato();
+  }
+  excluirSessao() {
+    return abstrato();
+  }
+}
+export class UnitOfWork {
+  transaction() {
+    return abstrato();
+  }
+}

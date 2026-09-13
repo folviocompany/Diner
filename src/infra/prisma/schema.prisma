@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Origem {
+  comanda
+  ifood
+  caixa
+}
+enum StatusPedido {
+  recebido
+  preparando
+  pronto
+  concluido
+  cancelado
+}
+enum FormaPagamento {
+  dinheiro
+  pix
+  credito
+  debito
+  vale
+  ifood_online
+}
+enum StatusPagamento {
+  confirmado
+  estornado
+}
+enum TipoMovimento {
+  sangria
+  suprimento
+}
+enum StatusEvento {
+  pendente
+  processando
+  processado
+  ignorado
+  falhou
+}
+
+model Produto {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  nome          String   @db.VarChar(120)
+  categoria     String   @db.VarChar(60)
+  precoCentavos Int
+  custoCentavos Int
+  codigoExterno String?  @unique @db.VarChar(120)
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now()) @db.DateTime(3)
+  atualizadoEm  DateTime @updatedAt @db.DateTime(3)
+  itens         ItemPedido[]
+}
+
+model Cliente {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  nome     String @db.VarChar(120)
+  contato  String? @db.VarChar(40)
+  pedidos  Pedido[]
+}
+
+model Pedido {
+  id                    String @id @default(uuid()) @db.VarChar(36)
+  numero                Int @unique @default(autoincrement())
+  origem                Origem
+  status                StatusPedido @default(recebido)
+  mesa                  String? @db.VarChar(20)
+  clienteId             String? @db.VarChar(36)
+  cliente               Cliente? @relation(fields: [clienteId], references: [id])
+  clienteNome           String? @db.VarChar(120)
+  clienteContato        String? @db.VarChar(40)
+  observacao            String? @db.VarChar(500)
+  externoId             String? @unique @db.VarChar(36)
+  referenciaExterna     String? @db.VarChar(60)
+  ultimoEventoEm        DateTime? @db.DateTime(3)
+  subtotalCentavos      Int
+  descontoCentavos      Int @default(0)
+  acrescimoCentavos     Int @default(0)
+  totalCentavos         Int
+  receitaCentavos       Int
+  custoItensCentavos    Int
+  taxasCentavos         Int @default(0)
+  criadoEm              DateTime @default(now()) @db.DateTime(3)
+  atualizadoEm          DateTime @updatedAt @db.DateTime(3)
+  concluidoEm           DateTime? @db.DateTime(3)
+  canceladoEm           DateTime? @db.DateTime(3)
+  motivoCancelamento    String? @db.VarChar(300)
+  itens                 ItemPedido[]
+  pagamentos            Pagamento[]
+  @@index([criadoEm, origem, status])
+  @@index([concluidoEm, status])
+}
+
+model ItemPedido {
+  id                    String @id @default(uuid()) @db.VarChar(36)
+  pedidoId              String @db.VarChar(36)
+  pedido                Pedido @relation(fields: [pedidoId], references: [id])
+  produtoId             String @db.VarChar(36)
+  produto               Produto @relation(fields: [produtoId], references: [id])
+  nome                  String @db.VarChar(120)
+  quantidade            Decimal @db.Decimal(10, 3)
+  precoUnitarioCentavos  Int
+  custoUnitarioCentavos  Int
+  subtotalCentavos       Int
+  observacao            String? @db.VarChar(500)
+}
+
+model Pagamento {
+  id                    String @id @default(uuid()) @db.VarChar(36)
+  pedidoId              String @db.VarChar(36)
+  pedido                Pedido @relation(fields: [pedidoId], references: [id])
+  caixaId               String? @db.VarChar(36)
+  caixa                 Caixa? @relation(fields: [caixaId], references: [id])
+  forma                 FormaPagamento
+  valorCentavos         Int
+  status                StatusPagamento @default(confirmado)
+  chaveIdempotencia     String? @unique @db.VarChar(80)
+  recebidoEm            DateTime @default(now()) @db.DateTime(3)
+  estornadoEm           DateTime? @db.DateTime(3)
+}
+
+model Caixa {
+  id                    String @id @default(uuid()) @db.VarChar(36)
+  // Índice único: só uma sessão pode ter chaveAberto = "principal".
+  chaveAberto           String? @unique @db.VarChar(20)
+  valorInicialCentavos  Int
+  valorFinalCentavos    Int?
+  esperadoCentavos      Int?
+  diferencaCentavos     Int?
+  abertoEm              DateTime @default(now()) @db.DateTime(3)
+  fechadoEm             DateTime? @db.DateTime(3)
+  observacao            String? @db.VarChar(300)
+  pagamentos            Pagamento[]
+  movimentos            MovimentoCaixa[]
+}
+
+model MovimentoCaixa {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  caixaId       String @db.VarChar(36)
+  caixa         Caixa @relation(fields: [caixaId], references: [id])
+  tipo          TipoMovimento
+  valorCentavos Int
+  motivo        String @db.VarChar(300)
+  criadoEm      DateTime @default(now()) @db.DateTime(3)
+}
+
+model Despesa {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  descricao     String @db.VarChar(200)
+  categoria     String @db.VarChar(60)
+  valorCentavos Int
+  ocorridoEm    DateTime @db.DateTime(3)
+  criadoEm      DateTime @default(now()) @db.DateTime(3)
+  @@index([ocorridoEm])
+}
+
+model EventoIfood {
+  id                  String @id @db.VarChar(36)
+  orderId             String @db.VarChar(36)
+  merchantId          String @db.VarChar(36)
+  code                String @db.VarChar(80)
+  ocorridoEm          DateTime @db.DateTime(3)
+  payload             Json
+  status              StatusEvento @default(pendente)
+  tentativas          Int @default(0)
+  proximaTentativaEm   DateTime @default(now()) @db.DateTime(3)
+  bloqueadoAte        DateTime? @db.DateTime(3)
+  tokenProcessamento  String? @db.VarChar(36)
+  erro                String? @db.VarChar(1000)
+  recebidoEm          DateTime @default(now()) @db.DateTime(3)
+  processadoEm        DateTime? @db.DateTime(3)
+  @@index([status, proximaTentativaEm])
+}
+
+model Usuario {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  nome      String @db.VarChar(120)
+  email     String @unique @db.VarChar(200)
+  senhaHash String @db.VarChar(300)
+  sessoes   Sessao[]
+}
+
+model Sessao {
+  tokenHash String @id @db.VarChar(64)
+  usuarioId String @db.VarChar(36)
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiraEm  DateTime @db.DateTime(3)
+  @@index([expiraEm])
+}
