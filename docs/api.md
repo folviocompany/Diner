@@ -120,7 +120,16 @@ Fluxo manual: `recebido` → `preparando` → `pronto` → `concluido`. Alterar 
 { "status": "cancelado", "motivo": "Cliente desistiu" }
 ```
 
-Cancelamento exige motivo de 3–300 caracteres, estorna todos os pagamentos confirmados e não reabre pedido cancelado. Pagamento em sessão já fechada bloqueia cancelamento. Pedidos iFood não aceitam mudança manual de status nesta API.
+Cancelamento exige motivo de 3–300 caracteres e perfil administrador ou gerente. Pagamentos em caixa aberto são estornados. Pagamentos em caixa fechado permanecem no fechamento e geram reembolsos pendentes, confirmados em outro caixa aberto. Vendas concluídas mantêm a receita histórica e recebem ajuste negativo de receita e custo na data do cancelamento; taxas incorridas são mantidas. Pedidos iFood não aceitam mudança manual de status nesta API; o evento de cancelamento usa as mesmas regras.
+
+### Operação, equipe e auditoria
+
+- `POST /pedidos` exige `Idempotency-Key` (8–80 caracteres alfanuméricos, `_` ou `-`). Mesma chave e conteúdo retornam o pedido original; conteúdo diferente retorna `409`.
+- `PATCH /comandas/:id`: `{versao, mesa?, adicionar?: [{produtoId, quantidade, observacao?}], remover?: [{itemId, motivo}]}`. Versão antiga retorna `409`. Remoção exige gerente/admin; total não pode ser menor que o já pago. Novos consumos retornam a comanda a Recebido.
+- `GET /usuarios`, `POST /usuarios`, `PUT /usuarios/:id`: gerente/admin; corpo `{nome, email, perfil, ativo, senha?}`. Senha inicial obrigatória (10–200 caracteres). Só admin gerencia outros admins; último admin ativo é protegido. Atualização revoga sessões anteriores.
+- `GET /auditoria?page=1&limit=30`: gerente/admin; registros sem senha, hash ou token. Alteração e auditoria são atômicas.
+- `GET /reembolsos`, `POST /reembolsos/:id/confirmar`: gerente/admin. Confirmação exige caixa aberto e registra saída na forma original, sem duplicar. Dinheiro exige saldo físico. A API registra a devolução já realizada pelo operador; não transfere fundos.
+- Cozinha recebe apenas dados de preparo dos pedidos e pode iniciar preparo/marcar pronto. Caixa cria pedidos, edita comandas, recebe pagamentos e opera caixa. Descontos, cancelamentos, retirada de itens, relatórios, equipe e integração exigem gerente/admin.
 
 ### Caixa e despesas
 

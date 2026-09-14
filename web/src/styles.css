@@ -2644,3 +2644,25 @@ h4,
     scroll-behavior: auto !important;
   }
 }
+/* Formulários operacionais e auditoria. */
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.8rem 0;
+}
+.check-row input {
+  width: auto;
+}
+.split-bill {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--bg, #f6f5f0);
+  border-radius: 12px;
+}
+.audit-detail {
+  max-width: 480px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}

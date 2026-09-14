@@ -22,6 +22,19 @@ const taxas = ref(0);
 const busy = ref(false);
 const error = ref('');
 const saved = ref(false);
+const chaveCriacao = ref(crypto.randomUUID());
+const tentativa = ref(null);
+const armazenamento = `diner:pedido-pendente:${store.usuario.id}`;
+try {
+  const pendente = JSON.parse(sessionStorage.getItem(armazenamento) ?? 'null');
+  if (pendente) {
+    chaveCriacao.value = pendente.chave;
+    tentativa.value = pendente.body;
+  }
+} catch {
+  error.value =
+    'Não foi possível recuperar o envio anterior. Confira a lista de pedidos antes de criar outro.';
+}
 const categorias = computed(() => [...new Set(produtos.value.map((p) => p.categoria))]);
 const filtrados = computed(() =>
   produtos.value.filter(
@@ -40,33 +53,43 @@ function adicionar(produto) {
   else cart.value.push({ produto, quantidade: 1, observacao: '' });
 }
 async function salvar() {
-  if (!cart.value.length) return;
+  if (!cart.value.length && !tentativa.value) return;
   busy.value = true;
   error.value = '';
   try {
+    const body = tentativa.value ?? {
+      origem: origem.value,
+      mesa: mesa.value,
+      clienteNome: clienteNome.value,
+      clienteContato: clienteContato.value,
+      observacao: observacao.value,
+      descontoCentavos: desconto.value,
+      acrescimoCentavos: acrescimo.value,
+      taxasCentavos: taxas.value,
+      itens: cart.value.map((i) => ({
+        produtoId: i.produto.id,
+        quantidade: i.quantidade,
+        observacao: i.observacao,
+      })),
+    };
+    tentativa.value = body;
+    sessionStorage.setItem(armazenamento, JSON.stringify({ chave: chaveCriacao.value, body }));
     const pedido = await api('/pedidos', {
       method: 'POST',
-      body: {
-        origem: origem.value,
-        mesa: mesa.value,
-        clienteNome: clienteNome.value,
-        clienteContato: clienteContato.value,
-        observacao: observacao.value,
-        descontoCentavos: desconto.value,
-        acrescimoCentavos: acrescimo.value,
-        taxasCentavos: taxas.value,
-        itens: cart.value.map((i) => ({
-          produtoId: i.produto.id,
-          quantidade: i.quantidade,
-          observacao: i.observacao,
-        })),
-      },
+      headers: { 'Idempotency-Key': chaveCriacao.value },
+      body,
     });
     saved.value = true;
+    sessionStorage.removeItem(armazenamento);
     store.notificar('Pedido criado. Você já pode receber o pagamento.');
     router.push({ path: '/pedidos', query: { pedido: pedido.id } });
   } catch (e) {
     error.value = e.message;
+    if (e.status && e.status < 500) {
+      tentativa.value = null;
+      sessionStorage.removeItem(armazenamento);
+      chaveCriacao.value = crypto.randomUUID();
+    } else error.value += ' Tente novamente para confirmar o envio original sem duplicar o pedido.';
   } finally {
     busy.value = false;
   }
@@ -102,7 +125,11 @@ const icon = (categoria) =>
     >
   </div>
   <div v-if="error" class="alert error" role="alert">{{ error }}</div>
-  <div class="pos-layout">
+  <div v-if="tentativa && !busy" class="alert" role="status">
+    O envio anterior aguarda confirmação. Confirme antes de montar outro pedido.
+    <PButton label="Confirmar envio anterior" @click="salvar" />
+  </div>
+  <div class="pos-layout" :inert="tentativa !== null">
     <section>
       <label class="search-input catalog-search"
         ><i aria-hidden="true" class="pi pi-search"></i
@@ -223,7 +250,7 @@ const icon = (categoria) =>
             placeholder="Algum cuidado especial?"
           ></textarea>
         </label>
-        <details class="adjustments">
+        <details v-if="store.pode('pedidos.descontar')" class="adjustments">
           <summary>Desconto, acréscimo e taxas</summary>
           <label for="desconto">Desconto<MoneyInput id="desconto" v-model="desconto" /></label
           ><label for="acrescimo">Acréscimo<MoneyInput id="acrescimo" v-model="acrescimo" /></label

@@ -1,10 +1,14 @@
 import { DateTime } from 'luxon';
 import { ORIGENS, saldoPedido } from '../entities/Pedido.js';
 
-export function calcularRelatorio(pedidos, despesas, periodo) {
-  const concluidos = pedidos.filter((p) => p.status === 'concluido');
-  const receitaCentavos = concluidos.reduce((s, p) => s + p.receitaCentavos, 0);
-  const custoItensCentavos = concluidos.reduce((s, p) => s + p.custoItensCentavos, 0);
+export function calcularRelatorio(pedidos, despesas, periodo, ajustes = []) {
+  const concluidos = pedidos.filter((p) => p.status === 'concluido' || p.preservarReceita);
+  const receitaCentavos =
+    concluidos.reduce((s, p) => s + p.receitaCentavos, 0) +
+    ajustes.reduce((s, a) => s + a.receitaCentavos, 0);
+  const custoItensCentavos =
+    concluidos.reduce((s, p) => s + p.custoItensCentavos, 0) +
+    ajustes.reduce((s, a) => s + a.custoCentavos, 0);
   const taxasCentavos = concluidos.reduce((s, p) => s + p.taxasCentavos, 0);
   const despesasCentavos = despesas.reduce((s, d) => s + d.valorCentavos, 0);
   const lucroCentavos = receitaCentavos - custoItensCentavos - taxasCentavos - despesasCentavos;
@@ -56,6 +60,17 @@ export function calcularRelatorio(pedidos, despesas, periodo) {
     );
     if (dia) dia.custosCentavos += d.valorCentavos;
   }
+  for (const a of ajustes) {
+    const origem = porOrigem.find((o) => o.origem === a.origem);
+    if (origem) origem.receitaCentavos += a.receitaCentavos;
+    const dia = serie.get(
+      DateTime.fromJSDate(new Date(a.ocorridoEm), { zone: periodo.timezone }).toISODate(),
+    );
+    if (dia) {
+      dia.receitaCentavos += a.receitaCentavos;
+      dia.custosCentavos += a.custoCentavos;
+    }
+  }
   return {
     periodo,
     receitaCentavos,
@@ -66,10 +81,13 @@ export function calcularRelatorio(pedidos, despesas, periodo) {
     pedidos: concluidos.length,
     ticketMedioCentavos: concluidos.length ? Math.round(receitaCentavos / concluidos.length) : 0,
     margemPercentual: receitaCentavos ? Math.round((lucroCentavos / receitaCentavos) * 10000) / 100 : 0,
-    aReceberCentavos: concluidos.reduce((s, p) => s + Math.max(0, saldoPedido(p)), 0),
+    aReceberCentavos: concluidos
+      .filter((p) => p.status !== 'cancelado')
+      .reduce((s, p) => s + Math.max(0, saldoPedido(p)), 0),
     porOrigem,
     itens: [...itens.values()].sort((a, b) => b.quantidade - a.quantidade),
     serie: [...serie.values()].map((d) => ({ ...d, lucroCentavos: d.receitaCentavos - d.custosCentavos })),
     despesas,
+    ajustes,
   };
 }

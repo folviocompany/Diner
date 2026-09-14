@@ -18,7 +18,8 @@ beforeEach(async () => {
     .send({ email: 'teste@diner.local', senha: 'SenhaTeste123!' })
     .expect(200);
 });
-const post = (path, body) => agent.post(path).set('X-Diner-Client', 'web').send(body);
+const post = (path, body) =>
+  agent.post(path).set('X-Diner-Client', 'web').set('Idempotency-Key', randomUUID()).send(body);
 const patch = (path, body) => agent.patch(path).set('X-Diner-Client', 'web').send(body);
 describe('API de operação', () => {
   it('protege dados e mutações, não expõe hash da senha', async () => {

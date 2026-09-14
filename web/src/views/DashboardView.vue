@@ -8,6 +8,7 @@ import MetricCard from '../components/MetricCard.vue';
 import RevenueChart from '../components/RevenueChart.vue';
 import OrderTable from '../components/OrderTable.vue';
 import OrderDetail from '../components/OrderDetail.vue';
+import { usarAtualizacao } from '../lib/usarAtualizacao.js';
 const store = useAppStore();
 const report = ref(null);
 const semana = ref(null);
@@ -17,23 +18,26 @@ const caixa = ref(null);
 const error = ref('');
 const loading = ref(true);
 const selected = ref(null);
-const dataHoje = day(store.config.timezone);
-const dataLabel = new Intl.DateTimeFormat('pt-BR', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  timeZone: store.config.timezone,
-}).format(new Date());
+const dataHoje = ref(day(store.config.timezone));
+const dataLabel = computed(() =>
+  new Intl.DateTimeFormat('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: store.config.timezone,
+  }).format(DateTime.fromISO(dataHoje.value, { zone: store.config.timezone }).toJSDate()),
+);
 const channelMax = computed(() =>
   Math.max(1, ...(report.value?.porOrigem.map((o) => o.receitaCentavos) ?? [])),
 );
 async function carregar() {
   error.value = '';
   try {
-    const inicio = DateTime.fromISO(dataHoje).minus({ days: 6 }).toISODate();
+    dataHoje.value = day(store.config.timezone);
+    const inicio = DateTime.fromISO(dataHoje.value).minus({ days: 6 }).toISODate();
     const data = await Promise.all([
-      api(`/relatorios?${query({ data: dataHoje })}`),
-      api(`/relatorios?${query({ tipo: 'personalizado', inicio, fim: dataHoje })}`),
+      api(`/relatorios?${query({ data: dataHoje.value })}`),
+      api(`/relatorios?${query({ tipo: 'personalizado', inicio, fim: dataHoje.value })}`),
       api('/pedidos?limit=6'),
       api('/pedidos?status=ativos&limit=1'),
       api('/caixa/atual'),
@@ -49,6 +53,7 @@ async function carregar() {
   }
 }
 onMounted(carregar);
+usarAtualizacao(carregar, () => !selected.value);
 </script>
 <template>
   <div class="page-heading">

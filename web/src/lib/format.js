@@ -35,4 +35,4 @@ export const formas = {
 };
 export const saldo = (p) =>
   p.totalCentavos -
-  p.pagamentos.filter((p) => p.status === 'confirmado').reduce((s, p) => s + p.valorCentavos, 0);
+  (p.pagamentos ?? []).filter((p) => p.status === 'confirmado').reduce((s, p) => s + p.valorCentavos, 0);

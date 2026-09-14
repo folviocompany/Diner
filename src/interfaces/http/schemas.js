@@ -7,6 +7,43 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const loginSchema = z
   .object({ email: z.string().email().max(200), senha: z.string().min(1).max(200) })
   .strict();
+export const usuarioSchema = z
+  .object({
+    nome: text(120).min(2),
+    email: z.string().trim().email().max(200),
+    perfil: z.enum(['admin', 'gerente', 'caixa', 'cozinha']),
+    ativo: z.boolean().default(true),
+    senha: z.string().min(10).max(200).optional(),
+  })
+  .strict();
+export const comandaSchema = z
+  .object({
+    versao: z.number().int().nonnegative(),
+    mesa: text(20).min(1).optional(),
+    adicionar: z
+      .array(
+        z
+          .object({
+            produtoId: idSchema,
+            quantidade: z.number().positive().max(1000),
+            observacao: text(500).optional(),
+          })
+          .strict(),
+      )
+      .max(100)
+      .default([]),
+    remover: z
+      .array(z.object({ itemId: idSchema, motivo: text(300).min(3) }).strict())
+      .max(100)
+      .default([]),
+  })
+  .strict();
+export const auditoriaSchema = z
+  .object({
+    page: z.coerce.number().int().min(1).max(100000).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(30),
+  })
+  .strict();
 export const produtoSchema = z
   .object({
     nome: text(120).min(2),

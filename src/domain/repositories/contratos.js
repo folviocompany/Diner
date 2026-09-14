@@ -3,6 +3,12 @@ const abstrato = () => {
   throw new Error('Método do contrato não implementado.');
 };
 export class PedidoRepository {
+  buscarPorChave() {
+    return abstrato();
+  }
+  editarComanda() {
+    return abstrato();
+  }
   criar() {
     return abstrato();
   }
@@ -60,6 +66,27 @@ export class CaixaRepository {
   }
 }
 export class FinanceiroRepository {
+  estornarPagamento() {
+    return abstrato();
+  }
+  criarReembolso() {
+    return abstrato();
+  }
+  buscarReembolso() {
+    return abstrato();
+  }
+  reembolsosPendentes() {
+    return abstrato();
+  }
+  confirmarReembolso() {
+    return abstrato();
+  }
+  criarAjuste() {
+    return abstrato();
+  }
+  ajustes() {
+    return abstrato();
+  }
   pagar() {
     return abstrato();
   }
@@ -94,6 +121,18 @@ export class EventoRepository {
   }
 }
 export class UsuarioRepository {
+  listar() {
+    return abstrato();
+  }
+  buscarPorId() {
+    return abstrato();
+  }
+  atualizar() {
+    return abstrato();
+  }
+  invalidarSessoes() {
+    return abstrato();
+  }
   buscarPorEmail() {
     return abstrato();
   }
@@ -112,6 +151,14 @@ export class UsuarioRepository {
 }
 export class UnitOfWork {
   transaction() {
+    return abstrato();
+  }
+}
+export class AuditoriaRepository {
+  registrar() {
+    return abstrato();
+  }
+  listar() {
     return abstrato();
   }
 }

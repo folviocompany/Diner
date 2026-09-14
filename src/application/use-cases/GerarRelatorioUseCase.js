@@ -8,13 +8,20 @@ export class GerarRelatorioUseCase {
   }
   executar(filtro = {}) {
     const periodo = periodoRelatorio({ ...filtro, timezone: this.timezone });
-    return this.uow.transaction(async (tx) =>
-      calcularRelatorio(
+    return this.uow.transaction(async (tx) => {
+      const ajustes = await tx.financeiro.ajustes(periodo.inicio, periodo.fim);
+      for (const ajuste of ajustes) {
+        const pedido = await tx.pedidos.buscarPorId(ajuste.pedidoId);
+        ajuste.origem = pedido?.origem;
+        ajuste.numero = pedido?.numero;
+      }
+      return calcularRelatorio(
         await tx.pedidos.buscarPorPeriodo(periodo.inicio, periodo.fim),
         await tx.financeiro.despesas(periodo.inicio, periodo.fim),
         periodo,
-      ),
-    );
+        ajustes,
+      );
+    });
   }
 }
 export class GerarRelatorioDiarioUseCase extends GerarRelatorioUseCase {

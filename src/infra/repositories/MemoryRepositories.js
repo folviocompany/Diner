@@ -7,11 +7,27 @@ import {
   EventoRepository,
   UsuarioRepository,
   UnitOfWork,
+  AuditoriaRepository,
 } from '../../domain/repositories/contratos.js';
 import { ConflitoError } from '../../shared/errors/DomainError.js';
 
 const copy = (value) => structuredClone(value);
 class MemoryPedidoRepository extends PedidoRepository {
+  async buscarPorChave(chave) {
+    const p = this.s.pedidos.find((p) => p.chaveIdempotencia === chave);
+    return p ? this.buscarPorId(p.id) : null;
+  }
+  async editarComanda(id, versao, data, adicionar, remover) {
+    const p = this.s.pedidos.find((p) => p.id === id);
+    if ((p.versao ?? 0) !== versao)
+      throw new ConflitoError('Comanda atualizada por outra pessoa. Recarregue.');
+    Object.assign(p, copy(data), { versao: versao + 1 });
+    p.itens = [
+      ...p.itens.filter((i) => !remover.includes(i.id)),
+      ...adicionar.map((i) => ({ id: randomUUID(), ...copy(i) })),
+    ];
+    return this.buscarPorId(id);
+  }
   constructor(s) {
     super();
     this.s = s;
@@ -20,6 +36,7 @@ class MemoryPedidoRepository extends PedidoRepository {
     if (data.externoId && this.s.pedidos.some((p) => p.externoId === data.externoId))
       throw new ConflitoError();
     const pedido = {
+      versao: 0,
       status: 'recebido',
       criadoEm: new Date(),
       ...copy(data),
@@ -71,11 +88,18 @@ class MemoryPedidoRepository extends PedidoRepository {
   async buscarPorPeriodo(inicio, fim) {
     return Promise.all(
       this.s.pedidos
-        .filter((p) => p.status === 'concluido' && p.concluidoEm >= inicio && p.concluidoEm < fim)
+        .filter(
+          (p) =>
+            (p.status === 'concluido' || p.preservarReceita) &&
+            p.concluidoEm >= inicio &&
+            p.concluidoEm < fim,
+        )
         .map((p) => this.buscarPorId(p.id)),
     );
   }
   async atualizar(id, data) {
+    const atual = this.s.pedidos.find((p) => p.id === id);
+    atual.versao = (atual.versao ?? 0) + 1;
     Object.assign(
       this.s.pedidos.find((p) => p.id === id),
       copy(data),
@@ -147,6 +171,34 @@ class MemoryCaixaRepository extends CaixaRepository {
   }
 }
 class MemoryFinanceiroRepository extends FinanceiroRepository {
+  async estornarPagamento(id, estornadoEm) {
+    Object.assign(
+      this.s.pagamentos.find((p) => p.id === id),
+      { status: 'estornado', estornadoEm },
+    );
+  }
+  async criarReembolso(data) {
+    const old = this.s.reembolsos.find((r) => r.pagamentoId === data.pagamentoId);
+    if (!old) this.s.reembolsos.push(copy(data));
+    return copy(old ?? data);
+  }
+  async buscarReembolso(id) {
+    return copy(this.s.reembolsos.find((r) => r.id === id) ?? null);
+  }
+  async reembolsosPendentes() {
+    return copy(this.s.reembolsos.filter((r) => !r.confirmadoEm));
+  }
+  async confirmarReembolso(id, data) {
+    const r = this.s.reembolsos.find((r) => r.id === id);
+    Object.assign(r, copy(data));
+    return copy(r);
+  }
+  async criarAjuste(data) {
+    if (!this.s.ajustes.some((a) => a.pedidoId === data.pedidoId)) this.s.ajustes.push(copy(data));
+  }
+  async ajustes(inicio, fim) {
+    return copy(this.s.ajustes.filter((a) => a.ocorridoEm >= inicio && a.ocorridoEm < fim));
+  }
   constructor(s) {
     super();
     this.s = s;
@@ -236,6 +288,21 @@ class MemoryEventoRepository extends EventoRepository {
   }
 }
 class MemoryUsuarioRepository extends UsuarioRepository {
+  async listar() {
+    return copy(this.s.usuarios.map(({ senhaHash: _s, ...u }) => u));
+  }
+  async buscarPorId(id) {
+    return copy(this.s.usuarios.find((u) => u.id === id) ?? null);
+  }
+  async atualizar(id, data) {
+    const u = this.s.usuarios.find((u) => u.id === id);
+    if (this.s.usuarios.some((x) => x.id !== id && x.email === data.email)) throw new ConflitoError();
+    Object.assign(u, copy(data));
+    return copy(u);
+  }
+  async invalidarSessoes(id) {
+    this.s.sessoes = this.s.sessoes.filter((s) => s.usuarioId !== id);
+  }
   constructor(s) {
     super();
     this.s = s;
@@ -246,8 +313,9 @@ class MemoryUsuarioRepository extends UsuarioRepository {
   async salvar(data) {
     const old = await this.buscarPorEmail(data.email);
     if (old) return old;
-    this.s.usuarios.push(copy(data));
-    return copy(data);
+    const user = { perfil: 'admin', ativo: true, ...copy(data) };
+    this.s.usuarios.push(user);
+    return copy(user);
   }
   async criarSessao(data) {
     this.s.sessoes.push(copy(data));
@@ -274,6 +342,9 @@ export class MemoryUnitOfWork extends UnitOfWork {
       eventos: [],
       usuarios: [],
       sessoes: [],
+      auditorias: [],
+      reembolsos: [],
+      ajustes: [],
     };
     this.pedidos = new MemoryPedidoRepository(this.state);
     this.produtos = new MemoryProdutoRepository(this.state);
@@ -281,6 +352,7 @@ export class MemoryUnitOfWork extends UnitOfWork {
     this.financeiro = new MemoryFinanceiroRepository(this.state);
     this.eventos = new MemoryEventoRepository(this.state);
     this.usuarios = new MemoryUsuarioRepository(this.state);
+    this.auditoria = new MemoryAuditoriaRepository(this.state);
     this.queue = Promise.resolve();
   }
   async transaction(work) {
@@ -298,5 +370,18 @@ export class MemoryUnitOfWork extends UnitOfWork {
     } finally {
       release();
     }
+  }
+}
+class MemoryAuditoriaRepository extends AuditoriaRepository {
+  constructor(s) {
+    super();
+    this.s = s;
+  }
+  async registrar(data) {
+    this.s.auditorias.push(copy(data));
+    return copy(data);
+  }
+  async listar({ page = 1, limit = 30 } = {}) {
+    return copy([...this.s.auditorias].reverse().slice((page - 1) * limit, page * limit));
   }
 }

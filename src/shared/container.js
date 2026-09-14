@@ -13,11 +13,19 @@ import { ProcessarEventoIfoodUseCase } from '../application/use-cases/ProcessarE
 import { AutenticarUseCase } from '../application/use-cases/AutenticarUseCase.js';
 import { IfoodGateway } from '../infra/ifood/IfoodGateway.js';
 import { security } from '../infra/security.js';
+import { EditarComandaUseCase } from '../application/use-cases/EditarComandaUseCase.js';
+import { ConfirmarReembolsoUseCase } from '../application/use-cases/ConfirmarReembolsoUseCase.js';
+import { GerenciarUsuarioUseCase } from '../application/use-cases/GerenciarUsuarioUseCase.js';
+import { AcaoAuditadaUseCase } from '../application/use-cases/AcaoAuditadaUseCase.js';
 
 export function criarContainer(uow, config = {}, gateway) {
   return {
     uow,
     config,
+    editarComanda: new EditarComandaUseCase(uow),
+    confirmarReembolso: new ConfirmarReembolsoUseCase(uow),
+    gerenciarUsuario: new GerenciarUsuarioUseCase(uow, security),
+    acaoAuditada: new AcaoAuditadaUseCase(uow),
     criarPedido: new CriarPedidoUseCase(uow),
     atualizarStatus: new AtualizarStatusPedidoUseCase(uow),
     registrarPagamento: new RegistrarPagamentoUseCase(uow),

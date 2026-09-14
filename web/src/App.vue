@@ -13,6 +13,16 @@ const links = [
   { path: '/caixa', title: 'Caixa', icon: 'pi-wallet' },
   { path: '/relatorios', title: 'Relatórios', icon: 'pi-chart-bar' },
 ];
+const linkPermitido = (path) =>
+  store.pode(
+    {
+      '/': 'relatorios.ver',
+      '/pedidos': 'pedidos.ver',
+      '/produtos': 'produtos.gerenciar',
+      '/caixa': 'caixa.operar',
+      '/relatorios': 'relatorios.ver',
+    }[path],
+  );
 async function logout() {
   try {
     await store.sair();
@@ -59,7 +69,7 @@ onUnmounted(() => window.removeEventListener('diner:unauthorized', expired));
       <p class="nav-label">OPERAÇÃO</p>
       <nav aria-label="Navegação principal">
         <RouterLink
-          v-for="link in links"
+          v-for="link in links.filter((l) => linkPermitido(l.path))"
           :key="link.path"
           :to="link.path"
           :class="{ active: link.path === '/' ? route.path === '/' : route.path.startsWith(link.path) }"
@@ -71,10 +81,14 @@ onUnmounted(() => window.removeEventListener('diner:unauthorized', expired));
       <p class="nav-label management-label">GESTÃO</p>
       <nav>
         <RouterLink
+          v-if="store.pode('integracoes.gerenciar')"
           to="/integracoes"
           :class="{ active: route.path === '/integracoes' }"
           @click="menuOpen = false"
           ><i aria-hidden="true" class="pi pi-link"></i>Integrações</RouterLink
+        >
+        <RouterLink v-if="store.pode('usuarios.gerenciar')" to="/equipe" @click="menuOpen = false"
+          ><i aria-hidden="true" class="pi pi-users"></i>Equipe e histórico</RouterLink
         >
       </nav>
       <div class="sidebar-bottom">
@@ -86,7 +100,7 @@ onUnmounted(() => window.removeEventListener('diner:unauthorized', expired));
           <span class="avatar">{{ store.usuario.nome.slice(0, 2).toUpperCase() }}</span
           ><span
             ><strong>{{ store.usuario.nome }}</strong
-            ><small>Administrador</small></span
+            ><small>{{ store.usuario.perfil }}</small></span
           ><i aria-hidden="true" class="pi pi-sign-out"></i>
         </button>
       </div>

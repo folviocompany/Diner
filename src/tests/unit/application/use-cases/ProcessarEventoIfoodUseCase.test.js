@@ -71,7 +71,7 @@ it('lease expirado é recuperado e token antigo não finaliza trabalho novo', as
   ).rejects.toThrow();
 });
 
-it('cancelamento externo estorna pagamento online e retira venda do resultado', async () => {
+it('cancelamento externo preserva receita histórica e ajusta o período atual', async () => {
   const { c, uow } = await contexto();
   const worker = new ProcessarEventoIfoodUseCase(
     uow,
@@ -86,12 +86,13 @@ it('cancelamento externo estorna pagamento online e retira venda do resultado', 
   const pedido = (await uow.pedidos.listar()).data[0];
   expect(pedido.status).toBe('cancelado');
   expect(pedido.pagamentos[0].status).toBe('estornado');
-  expect((await c.relatorio.executar({ data: '2026-09-12' })).receitaCentavos).toBe(0);
+  expect((await c.relatorio.executar({ data: '2026-09-12' })).receitaCentavos).toBe(3980);
+  expect((await c.relatorio.executar({ data: '2026-09-13' })).receitaCentavos).toBe(-3980);
   await c.receberWebhook.executar([evento({ code: 'CON', createdAt: '2026-09-12T18:00:00Z' })]);
   await worker.executar();
   expect((await uow.pedidos.buscarPorId(pedido.id)).status).toBe('cancelado');
 });
-it('cancelamento com recebimento em caixa fechado não altera o histórico e registra falha', async () => {
+it('cancelamento com caixa fechado preserva histórico e gera reembolso pendente', async () => {
   const { c, uow } = await contexto();
   const worker = new ProcessarEventoIfoodUseCase(
     uow,
@@ -112,10 +113,10 @@ it('cancelamento com recebimento em caixa fechado não altera o histórico e reg
   const cancelamento = evento({ code: 'CAN', createdAt: '2026-09-12T17:00:00Z' });
   await c.receberWebhook.executar([cancelamento]);
   await worker.executar();
-  expect((await uow.pedidos.buscarPorId(pedido.id)).status).toBe('recebido');
+  expect((await uow.pedidos.buscarPorId(pedido.id)).status).toBe('cancelado');
+  expect(await uow.financeiro.reembolsosPendentes()).toHaveLength(1);
   expect((await uow.eventos.listar()).find((e) => e.id === cancelamento.id)).toMatchObject({
-    status: 'pendente',
-    erro: expect.stringContaining('caixa fechado'),
+    status: 'processado',
   });
   expect((await c.consultarCaixa.executar(caixa.id)).esperadoCentavos).toBe(3980);
 });

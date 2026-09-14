@@ -92,6 +92,20 @@ onMounted(carregar);
       >
     </div>
   </div>
+  <section v-if="report?.ajustes?.length" class="panel">
+    <h2>Ajustes por cancelamento</h2>
+    <p>
+      Receita e custo foram revertidos na data do cancelamento. A venda permanece no período original; taxas
+      já incorridas são mantidas. Quantidades vendidas representam o histórico antes dos ajustes.
+    </p>
+    <div v-for="ajuste in report.ajustes" :key="ajuste.id" class="detail-item">
+      <span
+        >Pedido #{{ ajuste.numero }} · {{ dateTime(ajuste.ocorridoEm, store.config.timezone) }} ·
+        {{ ajuste.motivo }}</span
+      >
+      <strong>{{ money(ajuste.receitaCentavos) }}</strong>
+    </div>
+  </section>
   <div class="report-filters panel">
     <div class="segmented">
       <button

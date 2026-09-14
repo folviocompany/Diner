@@ -14,6 +14,11 @@ export const router = createRouter({
     { path: '/produtos', component: () => import('./views/ProdutosView.vue'), meta: { title: 'Produtos' } },
     { path: '/caixa', component: () => import('./views/CaixaView.vue'), meta: { title: 'Caixa' } },
     {
+      path: '/equipe',
+      component: () => import('./views/EquipeView.vue'),
+      meta: { title: 'Equipe e histórico' },
+    },
+    {
       path: '/relatorios',
       component: () => import('./views/RelatoriosView.vue'),
       meta: { title: 'Relatórios' },
@@ -36,5 +41,15 @@ router.beforeEach(async (to) => {
     }
   }
   if (!to.meta.public && !store.usuario) return '/login';
-  if (to.path === '/login' && store.usuario) return '/';
+  const acoes = {
+    '/': 'relatorios.ver',
+    '/produtos': 'produtos.gerenciar',
+    '/caixa': 'caixa.operar',
+    '/relatorios': 'relatorios.ver',
+    '/integracoes': 'integracoes.gerenciar',
+    '/equipe': 'usuarios.gerenciar',
+    '/pedidos/novo': 'pedidos.criar',
+  };
+  if (store.usuario && acoes[to.path] && !store.pode(acoes[to.path])) return '/pedidos';
+  if (to.path === '/login' && store.usuario) return store.pode('relatorios.ver') ? '/' : '/pedidos';
 });

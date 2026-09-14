@@ -7,6 +7,7 @@ import {
   EventoRepository,
   UsuarioRepository,
   UnitOfWork,
+  AuditoriaRepository,
 } from '../../domain/repositories/contratos.js';
 import { ConflitoError } from '../../shared/errors/DomainError.js';
 
@@ -21,6 +22,20 @@ function plain(value) {
 }
 
 export class PrismaPedidoRepository extends PedidoRepository {
+  async buscarPorChave(chaveIdempotencia) {
+    return plain(await this.db.pedido.findUnique({ where: { chaveIdempotencia }, include }));
+  }
+  async editarComanda(id, versao, data, adicionar, remover) {
+    const result = await this.db.pedido.updateMany({
+      where: { id, versao },
+      data: { ...data, versao: { increment: 1 } },
+    });
+    if (!result.count) throw new ConflitoError('Comanda atualizada por outra pessoa. Recarregue.');
+    if (remover.length) await this.db.itemPedido.deleteMany({ where: { pedidoId: id, id: { in: remover } } });
+    if (adicionar.length)
+      await this.db.itemPedido.createMany({ data: adicionar.map((item) => ({ ...item, pedidoId: id })) });
+    return this.buscarPorId(id);
+  }
   constructor(db) {
     super();
     this.db = db;
@@ -78,13 +93,18 @@ export class PrismaPedidoRepository extends PedidoRepository {
   async buscarPorPeriodo(inicio, fim) {
     return plain(
       await this.db.pedido.findMany({
-        where: { status: 'concluido', concluidoEm: { gte: inicio, lt: fim } },
+        where: {
+          OR: [{ status: 'concluido' }, { status: 'cancelado', preservarReceita: true }],
+          concluidoEm: { gte: inicio, lt: fim },
+        },
         include,
       }),
     );
   }
   async atualizar(id, data) {
-    return plain(await this.db.pedido.update({ where: { id }, data, include }));
+    return plain(
+      await this.db.pedido.update({ where: { id }, data: { ...data, versao: { increment: 1 } }, include }),
+    );
   }
 }
 export class PrismaProdutoRepository extends ProdutoRepository {
@@ -133,6 +153,30 @@ export class PrismaCaixaRepository extends CaixaRepository {
   }
 }
 export class PrismaFinanceiroRepository extends FinanceiroRepository {
+  estornarPagamento(id, estornadoEm) {
+    return this.db.pagamento.update({ where: { id }, data: { status: 'estornado', estornadoEm } });
+  }
+  criarReembolso(data) {
+    return this.db.reembolso.upsert({ where: { pagamentoId: data.pagamentoId }, create: data, update: {} });
+  }
+  buscarReembolso(id) {
+    return this.db.reembolso.findUnique({ where: { id } });
+  }
+  reembolsosPendentes() {
+    return this.db.reembolso.findMany({ where: { confirmadoEm: null }, orderBy: { criadoEm: 'asc' } });
+  }
+  confirmarReembolso(id, data) {
+    return this.db.reembolso.update({ where: { id }, data });
+  }
+  criarAjuste(data) {
+    return this.db.ajusteFinanceiro.upsert({ where: { pedidoId: data.pedidoId }, create: data, update: {} });
+  }
+  ajustes(inicio, fim) {
+    return this.db.ajusteFinanceiro.findMany({
+      where: { ocorridoEm: { gte: inicio, lt: fim } },
+      orderBy: { ocorridoEm: 'desc' },
+    });
+  }
   constructor(db) {
     super();
     this.db = db;
@@ -216,6 +260,18 @@ export class PrismaEventoRepository extends EventoRepository {
   }
 }
 export class PrismaUsuarioRepository extends UsuarioRepository {
+  listar() {
+    return this.db.usuario.findMany({ orderBy: { nome: 'asc' }, omit: { senhaHash: true } });
+  }
+  buscarPorId(id) {
+    return this.db.usuario.findUnique({ where: { id } });
+  }
+  atualizar(id, data) {
+    return this.db.usuario.update({ where: { id }, data });
+  }
+  invalidarSessoes(usuarioId) {
+    return this.db.sessao.deleteMany({ where: { usuarioId } });
+  }
   constructor(db) {
     super();
     this.db = db;
@@ -248,6 +304,7 @@ export class PrismaUnitOfWork extends UnitOfWork {
     this.financeiro = new PrismaFinanceiroRepository(db);
     this.eventos = new PrismaEventoRepository(db);
     this.usuarios = new PrismaUsuarioRepository(db);
+    this.auditoria = new PrismaAuditoriaRepository(db);
   }
   async transaction(work) {
     if (this.inside) return work(this);
@@ -267,5 +324,21 @@ export class PrismaUnitOfWork extends UnitOfWork {
         throw error;
       }
     }
+  }
+}
+export class PrismaAuditoriaRepository extends AuditoriaRepository {
+  constructor(db) {
+    super();
+    this.db = db;
+  }
+  registrar(data) {
+    return this.db.auditoria.create({ data });
+  }
+  listar({ page = 1, limit = 30 } = {}) {
+    return this.db.auditoria.findMany({
+      orderBy: [{ ocorridoEm: 'desc' }, { id: 'desc' }],
+      skip: (page - 1) * limit,
+      take: limit,
+    });
   }
 }

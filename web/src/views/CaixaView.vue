@@ -17,10 +17,13 @@ const busy = ref(false);
 const loaded = ref(false);
 const formError = ref('');
 const detalhe = ref(null);
+const reembolsos = ref([]);
+const confirmar = ref(null);
 async function carregar() {
   error.value = '';
   try {
     [caixa.value, historico.value] = await Promise.all([api('/caixa/atual'), api('/caixas')]);
+    if (store.pode('reembolsos.confirmar')) reembolsos.value = await api('/reembolsos');
   } catch (e) {
     error.value = e.message;
   } finally {
@@ -66,6 +69,20 @@ async function consultar(c) {
   }
 }
 onMounted(carregar);
+async function devolver() {
+  busy.value = true;
+  error.value = '';
+  try {
+    await api(`/reembolsos/${confirmar.value.id}/confirmar`, { method: 'POST' });
+    confirmar.value = null;
+    await carregar();
+    store.notificar('Devolução registrada no caixa atual.');
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = false;
+  }
+}
 </script>
 <template>
   <div class="page-heading">
@@ -88,6 +105,31 @@ onMounted(carregar);
     </div>
   </div>
   <div v-if="error" class="alert error">{{ error }}</div>
+  <section v-if="reembolsos.length" class="panel">
+    <h2>Devoluções pendentes</h2>
+    <p class="muted">Valores de vendas canceladas com pagamentos em caixas já fechados.</p>
+    <div v-for="r in reembolsos" :key="r.id" class="detail-item">
+      <div>
+        <strong>{{ money(r.valorCentavos) }} · {{ formas[r.forma] }}</strong>
+        <p>{{ r.motivo }}</p>
+        <small>Pedido {{ r.pedidoId }}</small>
+      </div>
+      <PButton label="Registrar devolução" :disabled="!caixa || busy" @click="confirmar = r" />
+    </div>
+  </section>
+  <PDialog
+    :visible="!!confirmar"
+    modal
+    header="Confirmar devolução"
+    :style="{ width: '450px', maxWidth: '95vw' }"
+    @update:visible="!$event && (confirmar = null)"
+    ><div v-if="error" class="alert error" role="alert">{{ error }}</div>
+    <p v-if="confirmar">
+      Confirme somente após devolver {{ money(confirmar.valorCentavos) }} por {{ formas[confirmar.forma] }} ao
+      cliente. O valor será lançado no caixa atual.
+    </p>
+    <PButton label="Já devolvi ao cliente" :loading="busy" @click="devolver"
+  /></PDialog>
   <template v-if="caixa"
     ><div class="cash-status">
       <span class="status-badge concluido"><span class="status-dot"></span>Caixa aberto</span
@@ -144,7 +186,7 @@ onMounted(carregar);
         <div class="panel-heading">
           <div>
             <h2>Movimentações</h2>
-            <p>Suprimentos e sangrias do período</p>
+            <p>Suprimentos, sangrias e reembolsos do período</p>
           </div>
         </div>
         <div v-if="!caixa.movimentos.length" class="empty-state">
@@ -156,14 +198,14 @@ onMounted(carregar);
           <span class="movement-icon" :class="m.tipo"
             ><i
               aria-hidden="true"
-              :class="['pi', m.tipo === 'sangria' ? 'pi-arrow-up-right' : 'pi-arrow-down-left']"
+              :class="['pi', m.tipo !== 'suprimento' ? 'pi-arrow-up-right' : 'pi-arrow-down-left']"
             ></i
           ></span>
           <div>
             <strong>{{ m.motivo }}</strong
             ><small>{{ dateTime(m.criadoEm, store.config.timezone) }}</small>
           </div>
-          <b>{{ m.tipo === 'sangria' ? '−' : '+' }} {{ money(m.valorCentavos) }}</b>
+          <b>{{ m.tipo !== 'suprimento' ? '−' : '+' }} {{ money(m.valorCentavos) }}</b>
         </div>
       </section>
     </div></template

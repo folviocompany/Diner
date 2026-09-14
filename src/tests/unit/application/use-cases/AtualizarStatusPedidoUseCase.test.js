@@ -44,8 +44,7 @@ it('não altera pagamentos em caixa já fechado', async () => {
     chaveIdempotencia: 'pay-0011',
   });
   await c.fecharCaixa.executar({ id: caixa.id, valorFinalCentavos: 0 });
-  await expect(
-    c.atualizarStatus.executar({ id: p.id, status: 'cancelado', motivo: 'Devolução' }),
-  ).rejects.toThrow('fechado');
+  await c.atualizarStatus.executar({ id: p.id, status: 'cancelado', motivo: 'Devolução' });
+  expect(await c.uow.financeiro.reembolsosPendentes()).toHaveLength(1);
   expect((await c.uow.pedidos.buscarPorId(p.id)).pagamentos[0].status).toBe('confirmado');
 });

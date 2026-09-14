@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { STATUS_IFOOD, mapearPedidoIfood } from '../../domain/services/ifood.js';
 import { exigir } from '../../shared/errors/DomainError.js';
+import { CancelarPedidoService } from './CancelarPedidoService.js';
 
 export class ProcessarEventoIfoodUseCase {
   constructor(uow, gateway, { clock = () => new Date(), comissaoBps = 0, merchantId } = {}) {
@@ -46,24 +47,31 @@ export class ProcessarEventoIfoodUseCase {
         if (pedido.status === 'cancelado') return;
         const ordem = ['recebido', 'preparando', 'pronto', 'concluido'];
         if (status !== 'cancelado' && ordem.indexOf(status) < ordem.indexOf(pedido.status)) return;
-        if (status === 'cancelado') {
-          // Reembolso após fechamento não reescreve caixa histórico: exige conciliação manual, fica na fila de falhas.
-          for (const p of pedido.pagamentos.filter((p) => p.caixaId && p.status === 'confirmado')) {
-            const caixa = await tx.caixas.buscarPorId(p.caixaId);
-            exigir(
-              caixa && !caixa.fechadoEm,
-              'Cancelamento iFood com recebimento em caixa fechado exige conciliação gerencial.',
-            );
-          }
-          await tx.financeiro.estornar(pedido.id, this.clock());
-        }
+        const ajuste =
+          status === 'cancelado'
+            ? await new CancelarPedidoService().executar(
+                tx,
+                pedido,
+                'Cancelado na plataforma iFood',
+                this.clock(),
+              )
+            : {};
         await tx.pedidos.atualizar(pedido.id, {
           status,
+          ...ajuste,
           ultimoEventoEm: evento.ocorridoEm,
           ...(status === 'concluido' && !pedido.concluidoEm ? { concluidoEm: evento.ocorridoEm } : {}),
           ...(status === 'cancelado'
             ? { canceladoEm: evento.ocorridoEm, motivoCancelamento: 'Cancelado na plataforma iFood' }
             : {}),
+        });
+        await tx.auditoria.registrar({
+          id: randomUUID(),
+          usuarioNome: 'iFood',
+          acao: 'ifood.status',
+          recursoId: pedido.id,
+          dados: { eventoId: evento.id, status },
+          ocorridoEm: this.clock(),
         });
       });
     } catch (error) {

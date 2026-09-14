@@ -33,6 +33,7 @@ enum StatusPagamento {
 enum TipoMovimento {
   sangria
   suprimento
+  estorno
 }
 enum StatusEvento {
   pendente
@@ -65,6 +66,10 @@ model Cliente {
 model Pedido {
   id                    String @id @default(uuid()) @db.VarChar(36)
   numero                Int @unique @default(autoincrement())
+  chaveIdempotencia     String? @unique @db.VarChar(80)
+  hashCriacao           String? @db.VarChar(64)
+  versao                Int @default(0)
+  preservarReceita      Boolean @default(false)
   origem                Origem
   status                StatusPedido @default(recebido)
   mesa                  String? @db.VarChar(20)
@@ -142,6 +147,7 @@ model MovimentoCaixa {
   caixaId       String @db.VarChar(36)
   caixa         Caixa @relation(fields: [caixaId], references: [id])
   tipo          TipoMovimento
+  forma         FormaPagamento?
   valorCentavos Int
   motivo        String @db.VarChar(300)
   criadoEm      DateTime @default(now()) @db.DateTime(3)
@@ -180,7 +186,44 @@ model Usuario {
   nome      String @db.VarChar(120)
   email     String @unique @db.VarChar(200)
   senhaHash String @db.VarChar(300)
+  perfil    String @default("admin") @db.VarChar(20)
+  ativo     Boolean @default(true)
   sessoes   Sessao[]
+}
+
+model Auditoria {
+  id          String @id @default(uuid()) @db.VarChar(36)
+  usuarioId   String? @db.VarChar(36)
+  usuarioNome String @db.VarChar(120)
+  acao        String @db.VarChar(80)
+  recursoId   String? @db.VarChar(36)
+  dados       Json
+  ocorridoEm  DateTime @default(now()) @db.DateTime(3)
+  @@index([ocorridoEm])
+}
+
+model Reembolso {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  pagamentoId   String @unique @db.VarChar(36)
+  pedidoId      String @db.VarChar(36)
+  caixaOrigemId String @db.VarChar(36)
+  caixaDestinoId String? @db.VarChar(36)
+  forma         FormaPagamento
+  valorCentavos Int
+  motivo        String @db.VarChar(300)
+  criadoEm      DateTime @default(now()) @db.DateTime(3)
+  confirmadoEm DateTime? @db.DateTime(3)
+  @@index([confirmadoEm, criadoEm])
+}
+
+model AjusteFinanceiro {
+  id            String @id @default(uuid()) @db.VarChar(36)
+  pedidoId      String @unique @db.VarChar(36)
+  receitaCentavos Int
+  custoCentavos Int
+  motivo        String @db.VarChar(300)
+  ocorridoEm    DateTime @db.DateTime(3)
+  @@index([ocorridoEm])
 }
 
 model Sessao {

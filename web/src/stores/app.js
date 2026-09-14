@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '../lib/api.js';
+import { Permissoes } from '../../../src/domain/services/Permissoes.js';
 export const useAppStore = defineStore('app', () => {
   const usuario = ref(null);
   const config = ref({ timezone: 'America/Manaus' });
@@ -33,5 +34,6 @@ export const useAppStore = defineStore('app', () => {
     await api('/auth/logout', { method: 'POST' });
     usuario.value = null;
   }
-  return { usuario, config, inicializado, aviso, carregar, entrar, sair, notificar };
+  const pode = (acao) => Permissoes.pode(usuario.value?.perfil, acao);
+  return { usuario, config, inicializado, aviso, carregar, entrar, sair, notificar, pode };
 });

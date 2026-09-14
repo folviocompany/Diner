@@ -3,25 +3,21 @@ import { DomainError } from '../../../shared/errors/DomainError.js';
 
 export function tratarErro(error, req, res, _next) {
   if (error instanceof ZodError)
-    return res
-      .status(400)
-      .json({
-        error: {
-          code: 'DADOS_INVALIDOS',
-          message: 'Revise os dados informados.',
-          details: error.issues.map((i) => ({ campo: i.path.join('.'), mensagem: i.message })),
-        },
-      });
+    return res.status(400).json({
+      error: {
+        code: 'DADOS_INVALIDOS',
+        message: 'Revise os dados informados.',
+        details: error.issues.map((i) => ({ campo: i.path.join('.'), mensagem: i.message })),
+      },
+    });
   if (error instanceof DomainError)
-    return res
-      .status(error.status)
-      .json({
-        error: {
-          code: error.code,
-          message: error.message,
-          ...(error.details ? { details: error.details } : {}),
-        },
-      });
+    return res.status(error.status).json({
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(error.details ? { details: error.details } : {}),
+      },
+    });
   if (error.type === 'entity.too.large')
     return res
       .status(413)
@@ -37,9 +33,7 @@ export function tratarErro(error, req, res, _next) {
   console.error(
     JSON.stringify({ level: 'error', requestId: req.id, code: error.code ?? 'INTERNO', name: error.name }),
   );
-  return res
-    .status(500)
-    .json({
-      error: { code: 'ERRO_INTERNO', message: 'Não foi possível concluir a operação.', requestId: req.id },
-    });
+  return res.status(500).json({
+    error: { code: 'ERRO_INTERNO', message: 'Não foi possível concluir a operação.', requestId: req.id },
+  });
 }

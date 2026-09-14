@@ -19,6 +19,9 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   for (const table of [
+    'auditoria',
+    'reembolso',
+    'ajusteFinanceiro',
     'sessao',
     'usuario',
     'eventoIfood',
@@ -38,6 +41,45 @@ afterAll(async () => {
 });
 
 describe('Prisma + MySQL real', () => {
+  it('deduplica criação concorrente e rejeita edição com versão antiga', async () => {
+    const { c, dados, produto } = await contexto(uow);
+    const entrada = { ...dados, origem: 'comanda', mesa: '1', chaveIdempotencia: 'concorrencia-pedido-001' };
+    const pedidos = await Promise.all(Array.from({ length: 3 }, () => c.criarPedido.executar(entrada)));
+    expect(new Set(pedidos.map((p) => p.id)).size).toBe(1);
+    const p = pedidos[0];
+    const atualizado = await c.editarComanda.executar({
+      id: p.id,
+      versao: 0,
+      mesa: '2',
+      adicionar: [{ produtoId: produto.id, quantidade: 1 }],
+    });
+    expect(atualizado).toMatchObject({ mesa: '2', versao: 1, totalCentavos: 5970 });
+    await expect(c.editarComanda.executar({ id: p.id, versao: 0, mesa: '3' })).rejects.toThrow();
+  });
+  it('persiste reembolso sem modificar fechamento original e confirma uma única vez', async () => {
+    const { c, dados } = await contexto(uow);
+    const caixa = await c.abrirCaixa.executar({ valorInicialCentavos: 0 });
+    const p = await c.criarPedido.executar(dados);
+    await c.registrarPagamento.executar({
+      pedidoId: p.id,
+      forma: 'pix',
+      valorCentavos: p.totalCentavos,
+      chaveIdempotencia: 'refund-mysql-001',
+    });
+    for (const status of ['preparando', 'pronto', 'concluido'])
+      await c.atualizarStatus.executar({ id: p.id, status });
+    await c.fecharCaixa.executar({ id: caixa.id, valorFinalCentavos: 0 });
+    const anterior = await c.consultarCaixa.executar(caixa.id);
+    await c.atualizarStatus.executar({ id: p.id, status: 'cancelado', motivo: 'Devolução teste' });
+    expect(await c.consultarCaixa.executar(caixa.id)).toEqual(anterior);
+    const [r] = await uow.financeiro.reembolsosPendentes();
+    await c.abrirCaixa.executar({ valorInicialCentavos: 500 });
+    await c.confirmarReembolso.executar({ id: r.id });
+    await c.confirmarReembolso.executar({ id: r.id });
+    expect((await c.consultarCaixa.executar()).esperadoCentavos).toBe(500);
+    expect(await db.movimentoCaixa.count({ where: { tipo: 'estorno' } })).toBe(1);
+    expect(await db.ajusteFinanceiro.count()).toBe(1);
+  });
   it('persiste pedido, cliente, snapshots e quantidades fracionárias', async () => {
     const { c, dados } = await contexto(uow);
     const p = await c.criarPedido.executar({
@@ -160,7 +202,12 @@ describe('Prisma + MySQL real', () => {
       .set('X-Diner-Client', 'web')
       .send({ email: 'teste@diner.local', senha: 'SenhaTeste123!' })
       .expect(200);
-    const response = await agent.post('/api/pedidos').set('X-Diner-Client', 'web').send(dados).expect(201);
+    const response = await agent
+      .post('/api/pedidos')
+      .set('X-Diner-Client', 'web')
+      .set('Idempotency-Key', 'mysql-http-001')
+      .send(dados)
+      .expect(201);
     expect((await db.pedido.findUnique({ where: { id: response.body.id } })).totalCentavos).toBe(3980);
     expect((await agent.get('/api/pedidos').expect(200)).body.total).toBe(1);
   });

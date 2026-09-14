@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { centavos, totalizarItens } from '../../domain/entities/Pedido.js';
-import { exigir, NaoEncontradoError } from '../../shared/errors/DomainError.js';
+import { exigir, NaoEncontradoError, ConflitoError } from '../../shared/errors/DomainError.js';
 
 export class CriarPedidoUseCase {
   constructor(uow, clock = () => new Date()) {
@@ -14,6 +14,29 @@ export class CriarPedidoUseCase {
     );
     if (dados.origem === 'comanda') exigir(dados.mesa?.trim(), 'Informe a mesa da comanda.');
     return this.uow.transaction(async (tx) => {
+      const { chaveIdempotencia, ...conteudo } = dados;
+      const canonical = (value) =>
+        Array.isArray(value)
+          ? value.map(canonical)
+          : value && typeof value === 'object'
+            ? Object.fromEntries(
+                Object.keys(value)
+                  .sort()
+                  .filter((k) => value[k] !== undefined)
+                  .map((k) => [k, canonical(value[k])]),
+              )
+            : value;
+      const hashCriacao = createHash('sha256')
+        .update(JSON.stringify(canonical(conteudo)))
+        .digest('hex');
+      if (chaveIdempotencia) {
+        const existente = await tx.pedidos.buscarPorChave(chaveIdempotencia);
+        if (existente) {
+          if (existente.hashCriacao !== hashCriacao)
+            throw new ConflitoError('Chave de pedido já usada com outros dados.');
+          return existente;
+        }
+      }
       exigir(Array.isArray(dados.itens) && dados.itens.length > 0, 'Adicione itens ao pedido.');
       const itens = await Promise.all(
         dados.itens.map(async (item) => {
@@ -38,6 +61,7 @@ export class CriarPedidoUseCase {
       const totalCentavos = centavos(totais.subtotalCentavos - descontoCentavos + acrescimoCentavos);
       return tx.pedidos.criar({
         id: randomUUID(),
+        ...(chaveIdempotencia ? { chaveIdempotencia, hashCriacao } : {}),
         origem: dados.origem,
         status: 'recebido',
         mesa: dados.origem === 'comanda' ? dados.mesa.trim() : null,
