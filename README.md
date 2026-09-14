@@ -162,6 +162,14 @@ No Windows o Playwright usa o Microsoft Edge instalado. O servidor de teste inic
 
 O CI segue lint → unitários → MySQL isolado/migrações → integração → E2E de API → build → navegador.
 
+## Documentação interativa (Swagger)
+
+Abra `/api/docs/` no endereço do Diner. O contrato OpenAPI 3.1 está em `/api/openapi.json`, com 32 operações, modelos de entrada e resposta, permissões e exemplos. A documentação é pública; as operações continuam exigindo autenticação e autorização.
+
+Em **Autenticação → POST /auth/login → Try it out**, informe suas credenciais e execute. O navegador usará o cookie de sessão nas próximas chamadas. Login prévio no aplicativo também funciona. O Swagger envia `X-Diner-Client: web`; para criar pedidos e pagamentos, informe uma `Idempotency-Key` nova e reutilize-a somente ao repetir a mesma operação. Os testes executados pelo Swagger afetam os dados do ambiente aberto.
+
+Os modelos de entrada são gerados a partir dos validadores Zod. Os testes verificam a validade OpenAPI, a cobertura das rotas e o login/consulta pelo Swagger no navegador. Referências: [Swagger UI](https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/) e [JSON Schema do Zod](https://zod.dev/json-schema).
+
 ## Execução em servidor
 
 Um `Dockerfile` está incluído para construir a aplicação completa. Passe `DATABASE_URL` e demais variáveis ao contêiner, execute `npm run db:migrate` e `npm run db:seed` como etapas controladas do provisionamento e coloque a aplicação atrás de HTTPS. `NODE_ENV=production` exige cookies seguros. O proxy deve preservar `/api` e servir o frontend na mesma origem. Não exponha MySQL publicamente.

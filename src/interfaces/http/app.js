@@ -10,6 +10,7 @@ import { tratarErro } from './middlewares/errors.js';
 import { webhookHandler } from '../webhooks/ifood/handler.js';
 import { loginSchema } from './schemas.js';
 import { DomainError } from '../../shared/errors/DomainError.js';
+import { documentacaoRouter } from './docs/router.js';
 
 export function criarApp(container) {
   const app = express();
@@ -34,6 +35,7 @@ export function criarApp(container) {
   );
   app.use(express.json({ limit: '128kb' }));
   app.use(cookieParser());
+  app.use('/api', documentacaoRouter());
   app.get('/api/health', async (_req, res) => {
     await container.uow.caixas.atual();
     res.json({ status: 'ok', mode: config.demo ? 'demo' : 'mysql' });

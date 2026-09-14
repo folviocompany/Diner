@@ -2,6 +2,8 @@
 
 Base: `/api`. JSON em UTF-8. Datas/horários de resposta em ISO 8601 UTC; dinheiro em **centavos inteiros**. Quantidades são números com até três casas decimais.
 
+Documentação interativa: `/api/docs/`. Contrato OpenAPI 3.1: `/api/openapi.json`. Faça login pelo endpoint `/auth/login` no Swagger ou na aplicação da mesma origem. Os modelos de entrada são derivados dos validadores da API; o contrato também descreve respostas, permissões e regras de negócio.
+
 ## Autenticação
 
 ```http
