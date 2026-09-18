@@ -15,6 +15,9 @@ export class PedidoRepository {
   buscarPorId() {
     return abstrato();
   }
+  buscarReferenciasPorIds() {
+    return abstrato();
+  }
   buscarPorExterno() {
     return abstrato();
   }
@@ -33,9 +36,6 @@ export class ProdutoRepository {
     return abstrato();
   }
   buscarPorId() {
-    return abstrato();
-  }
-  buscarPorCodigo() {
     return abstrato();
   }
   salvar() {
@@ -91,9 +91,6 @@ export class FinanceiroRepository {
     return abstrato();
   }
   buscarPagamento() {
-    return abstrato();
-  }
-  estornar() {
     return abstrato();
   }
   despesas() {

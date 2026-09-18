@@ -2,42 +2,33 @@ import { Router } from 'express';
 import { criarControllers } from '../controllers/controllers.js';
 import { Permissoes } from '../../../domain/services/Permissoes.js';
 
+const regrasDeAcesso = [
+  ['/usuarios', 'usuarios.gerenciar'],
+  ['/auditoria', 'auditoria.ver'],
+  ['/reembolsos', 'reembolsos.confirmar'],
+  ['/relatorios', 'relatorios.ver'],
+  ['/despesas', 'despesas.criar'],
+  ['/integracoes', 'integracoes.gerenciar'],
+  ['/caixa', 'caixa.operar'],
+  ['/comandas', 'comandas.editar'],
+];
+
+function acaoDaRota(req) {
+  if (req.path.startsWith('/produtos')) return req.method === 'GET' ? 'produtos.ver' : 'produtos.gerenciar';
+  if (req.path.startsWith('/pedidos')) {
+    if (req.method === 'GET') return 'pedidos.ver';
+    if (req.path.endsWith('/pagamentos')) return 'pagamentos.criar';
+    if (req.path.endsWith('/status')) return 'pedidos.ver';
+    return 'pedidos.criar';
+  }
+  return regrasDeAcesso.find(([prefixo]) => req.path.startsWith(prefixo))?.[1] ?? 'rota.inexistente';
+}
+
 export function criarRotas(container) {
   const router = Router();
   const c = criarControllers(container);
   router.use((req, _res, next) => {
-    const path = req.path;
-    const leitura = req.method === 'GET';
-    const acao = path.startsWith('/usuarios')
-      ? 'usuarios.gerenciar'
-      : path.startsWith('/auditoria')
-        ? 'auditoria.ver'
-        : path.startsWith('/reembolsos')
-          ? 'reembolsos.confirmar'
-          : path.startsWith('/relatorios')
-            ? 'relatorios.ver'
-            : path.startsWith('/despesas')
-              ? 'despesas.criar'
-              : path.startsWith('/integracoes')
-                ? 'integracoes.gerenciar'
-                : path.startsWith('/produtos')
-                  ? leitura
-                    ? 'produtos.ver'
-                    : 'produtos.gerenciar'
-                  : path.startsWith('/caixa')
-                    ? 'caixa.operar'
-                    : path.startsWith('/comandas')
-                      ? 'comandas.editar'
-                      : path.startsWith('/pedidos')
-                        ? leitura
-                          ? 'pedidos.ver'
-                          : path.endsWith('/pagamentos')
-                            ? 'pagamentos.criar'
-                            : path.endsWith('/status')
-                              ? 'pedidos.ver'
-                              : 'pedidos.criar'
-                        : 'rota.inexistente';
-    Permissoes.exigir(req.usuario, acao);
+    Permissoes.exigir(req.usuario, acaoDaRota(req));
     next();
   });
   router.patch('/comandas/:id', c.editarComanda);

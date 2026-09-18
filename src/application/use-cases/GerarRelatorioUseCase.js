@@ -9,18 +9,21 @@ export class GerarRelatorioUseCase {
   executar(filtro = {}) {
     const periodo = periodoRelatorio({ ...filtro, timezone: this.timezone });
     return this.uow.transaction(async (tx) => {
-      const ajustes = await tx.financeiro.ajustes(periodo.inicio, periodo.fim);
-      for (const ajuste of ajustes) {
-        const pedido = await tx.pedidos.buscarPorId(ajuste.pedidoId);
-        ajuste.origem = pedido?.origem;
-        ajuste.numero = pedido?.numero;
-      }
-      return calcularRelatorio(
-        await tx.pedidos.buscarPorPeriodo(periodo.inicio, periodo.fim),
-        await tx.financeiro.despesas(periodo.inicio, periodo.fim),
-        periodo,
-        ajustes,
-      );
+      const [pedidos, despesas, ajustes] = await Promise.all([
+        tx.pedidos.buscarPorPeriodo(periodo.inicio, periodo.fim),
+        tx.financeiro.despesas(periodo.inicio, periodo.fim),
+        tx.financeiro.ajustes(periodo.inicio, periodo.fim),
+      ]);
+      const pedidosAjustados = ajustes.length
+        ? await tx.pedidos.buscarReferenciasPorIds([...new Set(ajustes.map((a) => a.pedidoId))])
+        : [];
+      const porId = new Map(pedidosAjustados.map((pedido) => [pedido.id, pedido]));
+      const ajustesComPedido = ajustes.map((ajuste) => ({
+        ...ajuste,
+        origem: porId.get(ajuste.pedidoId)?.origem,
+        numero: porId.get(ajuste.pedidoId)?.numero,
+      }));
+      return calcularRelatorio(pedidos, despesas, periodo, ajustesComPedido);
     });
   }
 }

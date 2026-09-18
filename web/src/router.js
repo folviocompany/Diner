@@ -1,5 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAppStore } from './stores/app.js';
+const acoesPorRota = {
+  '/': 'relatorios.ver',
+  '/produtos': 'produtos.gerenciar',
+  '/caixa': 'caixa.operar',
+  '/relatorios': 'relatorios.ver',
+  '/integracoes': 'integracoes.gerenciar',
+  '/equipe': 'usuarios.gerenciar',
+  '/pedidos/novo': 'pedidos.criar',
+};
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -41,15 +50,6 @@ router.beforeEach(async (to) => {
     }
   }
   if (!to.meta.public && !store.usuario) return '/login';
-  const acoes = {
-    '/': 'relatorios.ver',
-    '/produtos': 'produtos.gerenciar',
-    '/caixa': 'caixa.operar',
-    '/relatorios': 'relatorios.ver',
-    '/integracoes': 'integracoes.gerenciar',
-    '/equipe': 'usuarios.gerenciar',
-    '/pedidos/novo': 'pedidos.criar',
-  };
-  if (store.usuario && acoes[to.path] && !store.pode(acoes[to.path])) return '/pedidos';
+  if (store.usuario && acoesPorRota[to.path] && !store.pode(acoesPorRota[to.path])) return '/pedidos';
   if (to.path === '/login' && store.usuario) return store.pode('relatorios.ver') ? '/' : '/pedidos';
 });

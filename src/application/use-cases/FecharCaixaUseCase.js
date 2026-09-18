@@ -1,6 +1,6 @@
 import { centavos } from '../../domain/entities/Pedido.js';
-import { resumirCaixa } from '../../domain/entities/Caixa.js';
 import { exigir, NaoEncontradoError } from '../../shared/errors/DomainError.js';
+import { carregarResumoCaixa } from '../services/resumirCaixa.js';
 
 export class FecharCaixaUseCase {
   constructor(uow, clock = () => new Date()) {
@@ -13,7 +13,7 @@ export class FecharCaixaUseCase {
       const caixa = await tx.caixas.buscarPorId(id);
       if (!caixa) throw new NaoEncontradoError('Caixa');
       exigir(!caixa.fechadoEm, 'Caixa já está fechado.');
-      const resumo = resumirCaixa(caixa, await tx.caixas.pagamentos(id), await tx.caixas.movimentos(id));
+      const resumo = await carregarResumoCaixa(tx, caixa);
       return tx.caixas.salvar({
         ...caixa,
         chaveAberto: null,

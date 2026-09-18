@@ -2,13 +2,13 @@ import * as s from '../schemas.js';
 import { NaoEncontradoError, DomainError } from '../../../shared/errors/DomainError.js';
 import { periodoRelatorio } from '../../../domain/services/periodos.js';
 import { Permissoes } from '../../../domain/services/Permissoes.js';
-import { criarContainer } from '../../../shared/container.js';
+import { criarCasoDeUso } from '../../../shared/container.js';
 
 export function criarControllers(c) {
   const id = (req) => s.idSchema.parse(req.params.id);
   const executar = (req, acao, caso, dados) =>
     c.acaoAuditada.executar(req.usuario, acao, dados, (tx) =>
-      criarContainer(tx, c.config)[caso].executar(dados),
+      criarCasoDeUso(caso, tx, c.config).executar(dados),
     );
   const visivel = (req, pedido) => {
     if (req.usuario.perfil !== 'cozinha') return pedido;

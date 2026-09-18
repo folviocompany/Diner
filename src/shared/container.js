@@ -18,30 +18,39 @@ import { ConfirmarReembolsoUseCase } from '../application/use-cases/ConfirmarRee
 import { GerenciarUsuarioUseCase } from '../application/use-cases/GerenciarUsuarioUseCase.js';
 import { AcaoAuditadaUseCase } from '../application/use-cases/AcaoAuditadaUseCase.js';
 
-export function criarContainer(uow, config = {}, gateway) {
-  return {
-    uow,
-    config,
-    editarComanda: new EditarComandaUseCase(uow),
-    confirmarReembolso: new ConfirmarReembolsoUseCase(uow),
-    gerenciarUsuario: new GerenciarUsuarioUseCase(uow, security),
-    acaoAuditada: new AcaoAuditadaUseCase(uow),
-    criarPedido: new CriarPedidoUseCase(uow),
-    atualizarStatus: new AtualizarStatusPedidoUseCase(uow),
-    registrarPagamento: new RegistrarPagamentoUseCase(uow),
-    salvarProduto: new SalvarProdutoUseCase(uow),
-    abrirCaixa: new AbrirCaixaUseCase(uow),
-    consultarCaixa: new ConsultarCaixaUseCase(uow),
-    fecharCaixa: new FecharCaixaUseCase(uow),
-    movimentarCaixa: new MovimentarCaixaUseCase(uow),
-    registrarDespesa: new RegistrarDespesaUseCase(uow),
-    relatorio: new GerarRelatorioUseCase(uow, config.timezone),
-    receberWebhook: new ReceberWebhookIfoodUseCase(uow, config.ifoodMerchantId),
-    processarEvento: new ProcessarEventoIfoodUseCase(
+const factories = {
+  editarComanda: ({ uow }) => new EditarComandaUseCase(uow),
+  confirmarReembolso: ({ uow }) => new ConfirmarReembolsoUseCase(uow),
+  gerenciarUsuario: ({ uow }) => new GerenciarUsuarioUseCase(uow, security),
+  acaoAuditada: ({ uow }) => new AcaoAuditadaUseCase(uow),
+  criarPedido: ({ uow }) => new CriarPedidoUseCase(uow),
+  atualizarStatus: ({ uow }) => new AtualizarStatusPedidoUseCase(uow),
+  registrarPagamento: ({ uow }) => new RegistrarPagamentoUseCase(uow),
+  salvarProduto: ({ uow }) => new SalvarProdutoUseCase(uow),
+  abrirCaixa: ({ uow }) => new AbrirCaixaUseCase(uow),
+  consultarCaixa: ({ uow }) => new ConsultarCaixaUseCase(uow),
+  fecharCaixa: ({ uow }) => new FecharCaixaUseCase(uow),
+  movimentarCaixa: ({ uow }) => new MovimentarCaixaUseCase(uow),
+  registrarDespesa: ({ uow }) => new RegistrarDespesaUseCase(uow),
+  relatorio: ({ uow, config }) => new GerarRelatorioUseCase(uow, config.timezone),
+  receberWebhook: ({ uow, config }) => new ReceberWebhookIfoodUseCase(uow, config.ifoodMerchantId),
+  processarEvento: ({ uow, config, gateway }) =>
+    new ProcessarEventoIfoodUseCase(
       uow,
       gateway ?? new IfoodGateway({ clientId: config.ifoodClientId, clientSecret: config.ifoodClientSecret }),
       { merchantId: config.ifoodMerchantId, comissaoBps: config.ifoodComissaoBps ?? 0 },
     ),
-    autenticar: new AutenticarUseCase(uow, security, { sessionHours: config.sessionHours ?? 12 }),
-  };
+  autenticar: ({ uow, config }) =>
+    new AutenticarUseCase(uow, security, { sessionHours: config.sessionHours ?? 12 }),
+};
+
+export function criarCasoDeUso(nome, uow, config = {}, gateway) {
+  return factories[nome]({ uow, config, gateway });
+}
+
+export function criarContainer(uow, config = {}, gateway) {
+  const casos = Object.fromEntries(
+    Object.keys(factories).map((nome) => [nome, criarCasoDeUso(nome, uow, config, gateway)]),
+  );
+  return { uow, config, ...casos };
 }

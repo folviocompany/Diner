@@ -1,5 +1,5 @@
-import { resumirCaixa } from '../../domain/entities/Caixa.js';
 import { NaoEncontradoError } from '../../shared/errors/DomainError.js';
+import { carregarResumoCaixa } from '../services/resumirCaixa.js';
 
 export class ConsultarCaixaUseCase {
   constructor(uow) {
@@ -12,7 +12,7 @@ export class ConsultarCaixaUseCase {
         if (id) throw new NaoEncontradoError('Caixa');
         return null;
       }
-      return resumirCaixa(caixa, await tx.caixas.pagamentos(caixa.id), await tx.caixas.movimentos(caixa.id));
+      return carregarResumoCaixa(tx, caixa);
     });
   }
 }

@@ -54,6 +54,14 @@ export class PrismaPedidoRepository extends PedidoRepository {
   async buscarPorId(id) {
     return plain(await this.db.pedido.findUnique({ where: { id }, include }));
   }
+  async buscarReferenciasPorIds(ids) {
+    return plain(
+      await this.db.pedido.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, numero: true, origem: true },
+      }),
+    );
+  }
   async buscarPorExterno(externoId) {
     return plain(await this.db.pedido.findUnique({ where: { externoId }, include }));
   }
@@ -117,9 +125,6 @@ export class PrismaProdutoRepository extends ProdutoRepository {
   }
   buscarPorId(id) {
     return this.db.produto.findUnique({ where: { id } });
-  }
-  buscarPorCodigo(codigoExterno) {
-    return this.db.produto.findUnique({ where: { codigoExterno } });
   }
   salvar(data) {
     return this.db.produto.upsert({ where: { id: data.id }, create: data, update: data });
@@ -186,12 +191,6 @@ export class PrismaFinanceiroRepository extends FinanceiroRepository {
   }
   buscarPagamento(chaveIdempotencia) {
     return this.db.pagamento.findUnique({ where: { chaveIdempotencia } });
-  }
-  estornar(pedidoId, estornadoEm) {
-    return this.db.pagamento.updateMany({
-      where: { pedidoId, status: 'confirmado' },
-      data: { status: 'estornado', estornadoEm },
-    });
   }
   despesas(inicio, fim) {
     return this.db.despesa.findMany({

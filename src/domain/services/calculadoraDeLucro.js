@@ -26,7 +26,7 @@ export function calcularRelatorio(pedidos, despesas, periodo, ajustes = []) {
       pedidos: 0,
     });
   }
-  const porOrigem = ORIGENS.map((origem) => ({ origem, pedidos: 0, receitaCentavos: 0 }));
+  const porOrigem = new Map(ORIGENS.map((origem) => [origem, { origem, pedidos: 0, receitaCentavos: 0 }]));
   const itens = new Map();
   for (const p of concluidos) {
     const dia = serie.get(
@@ -37,7 +37,7 @@ export function calcularRelatorio(pedidos, despesas, periodo, ajustes = []) {
       dia.custosCentavos += p.custoItensCentavos + p.taxasCentavos;
       dia.pedidos++;
     }
-    const origem = porOrigem.find((o) => o.origem === p.origem);
+    const origem = porOrigem.get(p.origem);
     origem.pedidos++;
     origem.receitaCentavos += p.receitaCentavos;
     for (const i of p.itens) {
@@ -61,7 +61,7 @@ export function calcularRelatorio(pedidos, despesas, periodo, ajustes = []) {
     if (dia) dia.custosCentavos += d.valorCentavos;
   }
   for (const a of ajustes) {
-    const origem = porOrigem.find((o) => o.origem === a.origem);
+    const origem = porOrigem.get(a.origem);
     if (origem) origem.receitaCentavos += a.receitaCentavos;
     const dia = serie.get(
       DateTime.fromJSDate(new Date(a.ocorridoEm), { zone: periodo.timezone }).toISODate(),
@@ -84,7 +84,7 @@ export function calcularRelatorio(pedidos, despesas, periodo, ajustes = []) {
     aReceberCentavos: concluidos
       .filter((p) => p.status !== 'cancelado')
       .reduce((s, p) => s + Math.max(0, saldoPedido(p)), 0),
-    porOrigem,
+    porOrigem: [...porOrigem.values()],
     itens: [...itens.values()].sort((a, b) => b.quantidade - a.quantidade),
     serie: [...serie.values()].map((d) => ({ ...d, lucroCentavos: d.receitaCentavos - d.custosCentavos })),
     despesas,

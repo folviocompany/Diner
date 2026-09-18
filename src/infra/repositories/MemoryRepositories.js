@@ -52,6 +52,12 @@ class MemoryPedidoRepository extends PedidoRepository {
     const p = this.s.pedidos.find((p) => p.id === id);
     return p ? copy({ ...p, pagamentos: this.s.pagamentos.filter((x) => x.pedidoId === id) }) : null;
   }
+  async buscarReferenciasPorIds(ids) {
+    const selecionados = new Set(ids);
+    return this.s.pedidos
+      .filter((pedido) => selecionados.has(pedido.id))
+      .map(({ id, numero, origem }) => copy({ id, numero, origem }));
+  }
   async buscarPorExterno(id) {
     const p = this.s.pedidos.find((p) => p.externoId === id);
     return p ? this.buscarPorId(p.id) : null;
@@ -100,10 +106,7 @@ class MemoryPedidoRepository extends PedidoRepository {
   async atualizar(id, data) {
     const atual = this.s.pedidos.find((p) => p.id === id);
     atual.versao = (atual.versao ?? 0) + 1;
-    Object.assign(
-      this.s.pedidos.find((p) => p.id === id),
-      copy(data),
-    );
+    Object.assign(atual, copy(data));
     return this.buscarPorId(id);
   }
 }
@@ -121,9 +124,6 @@ class MemoryProdutoRepository extends ProdutoRepository {
   }
   async buscarPorId(id) {
     return copy(this.s.produtos.find((p) => p.id === id) ?? null);
-  }
-  async buscarPorCodigo(codigo) {
-    return copy(this.s.produtos.find((p) => p.codigoExterno === codigo) ?? null);
   }
   async salvar(data) {
     if (
@@ -210,11 +210,6 @@ class MemoryFinanceiroRepository extends FinanceiroRepository {
   }
   async buscarPagamento(chave) {
     return copy(this.s.pagamentos.find((p) => chave && p.chaveIdempotencia === chave) ?? null);
-  }
-  async estornar(id, now) {
-    this.s.pagamentos
-      .filter((p) => p.pedidoId === id && p.status === 'confirmado')
-      .forEach((p) => Object.assign(p, { status: 'estornado', estornadoEm: now }));
   }
   async despesas(a, b) {
     return copy(

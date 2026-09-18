@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { exigir, NaoEncontradoError } from '../../shared/errors/DomainError.js';
-import { resumirCaixa } from '../../domain/entities/Caixa.js';
+import { carregarResumoCaixa } from '../services/resumirCaixa.js';
 
 export class ConfirmarReembolsoUseCase {
   constructor(uow, clock = () => new Date()) {
@@ -15,11 +15,7 @@ export class ConfirmarReembolsoUseCase {
       const caixa = await tx.caixas.atual();
       exigir(caixa, 'Abra o caixa para registrar a devolução.');
       if (r.forma === 'dinheiro') {
-        const resumo = resumirCaixa(
-          caixa,
-          await tx.caixas.pagamentos(caixa.id),
-          await tx.caixas.movimentos(caixa.id),
-        );
+        const resumo = await carregarResumoCaixa(tx, caixa);
         exigir(resumo.esperadoCentavos >= r.valorCentavos, 'Dinheiro insuficiente no caixa para devolução.');
       }
       const now = this.clock();

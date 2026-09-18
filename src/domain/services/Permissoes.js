@@ -22,12 +22,15 @@ const caixa = [
   'caixa.operar',
   'produtos.ver',
 ];
+const porPerfil = {
+  gerente: new Set([...gestao, ...caixa]),
+  caixa: new Set(caixa),
+  cozinha: new Set(['pedidos.ver', 'pedidos.preparar']),
+};
 export class Permissoes {
   static pode(perfil, acao) {
     if (perfil === 'admin') return true;
-    if (perfil === 'gerente') return [...gestao, ...caixa].includes(acao);
-    if (perfil === 'caixa') return caixa.includes(acao);
-    return perfil === 'cozinha' && ['pedidos.ver', 'pedidos.preparar'].includes(acao);
+    return porPerfil[perfil]?.has(acao) ?? false;
   }
   static exigir(usuario, acao) {
     if (!usuario || usuario.ativo === false || !this.pode(usuario.perfil, acao))

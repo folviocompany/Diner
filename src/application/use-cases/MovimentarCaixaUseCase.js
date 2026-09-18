@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { centavos } from '../../domain/entities/Pedido.js';
-import { resumirCaixa } from '../../domain/entities/Caixa.js';
 import { exigir } from '../../shared/errors/DomainError.js';
+import { carregarResumoCaixa } from '../services/resumirCaixa.js';
 
 export class MovimentarCaixaUseCase {
   constructor(uow, clock = () => new Date()) {
@@ -17,11 +17,7 @@ export class MovimentarCaixaUseCase {
     return this.uow.transaction(async (tx) => {
       const caixa = await tx.caixas.atual();
       exigir(caixa, 'O caixa está fechado.');
-      const resumo = resumirCaixa(
-        caixa,
-        await tx.caixas.pagamentos(caixa.id),
-        await tx.caixas.movimentos(caixa.id),
-      );
+      const resumo = await carregarResumoCaixa(tx, caixa);
       if (tipo === 'sangria')
         exigir(valorCentavos <= resumo.esperadoCentavos, 'Sangria excede o dinheiro disponível.');
       return tx.caixas.movimentar({
