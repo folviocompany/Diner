@@ -1,5 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+test('login se ajusta a celulares estreitos sem rolagem horizontal', async ({ page }) => {
+  await page.context().clearCookies();
+  for (const width of [320, 360, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/login');
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+    ).toBeLessThanOrEqual(1);
+  }
+});
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('E-mail', { exact: true }).fill('demo@diner.local');

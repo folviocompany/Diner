@@ -301,6 +301,9 @@ strong {
   padding: 35px 20px 0;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 30;
 }
 .brand {
@@ -1834,6 +1837,7 @@ strong {
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100vh;
+  min-width: 0;
 }
 .login-story {
   background: #183e35;
@@ -1843,6 +1847,7 @@ strong {
   flex-direction: column;
   position: relative;
   overflow: hidden;
+  min-width: 0;
 }
 .login-story .brand {
   padding: 0;
@@ -1933,6 +1938,7 @@ strong {
   padding: 60px 45px;
   background: #f7f8f2;
   position: relative;
+  min-width: 0;
 }
 .login-form {
   width: 355px;
@@ -2495,7 +2501,7 @@ strong {
     top: 0;
   }
   .login-page {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .login-story {
     min-height: 230px;
@@ -2565,6 +2571,14 @@ strong {
   }
 }
 @media (max-width: 400px) {
+  .breadcrumb > span,
+  .breadcrumb > .pi-angle-right {
+    display: none;
+  }
+  .operating {
+    font-size: 0;
+    gap: 0;
+  }
   .metrics-grid {
     gap: 9px;
   }
