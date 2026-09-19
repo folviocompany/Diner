@@ -11,6 +11,23 @@ test('login se ajusta a celulares estreitos sem rolagem horizontal', async ({ pa
   }
 });
 
+test('conteúdo principal cabe na área inicial de um notebook 1360x720', async ({ page }) => {
+  await page.context().clearCookies();
+  await page.setViewportSize({ width: 1303, height: 615 });
+  await page.goto('/login');
+  await page.getByRole('heading', { name: 'Vamos abrir a casa?' }).waitFor();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight),
+  ).toBeLessThanOrEqual(1);
+  await page.getByLabel('E-mail', { exact: true }).fill('demo@diner.local');
+  await page.getByLabel('Senha', { exact: true }).fill('DinerDemo2026!');
+  await page.getByRole('button', { name: 'Entrar na loja' }).click();
+  await page.getByRole('heading', { name: 'Visão geral.' }).waitFor();
+  expect(
+    await page.locator('.dashboard-middle').evaluate((element) => element.getBoundingClientRect().bottom),
+  ).toBeLessThanOrEqual(615);
+});
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('E-mail', { exact: true }).fill('demo@diner.local');
